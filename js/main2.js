@@ -8,14 +8,31 @@
 
 'use strict';
 
-const leftVideo = document.getElementById('leftVideo');
-const leftVideo2 = document.getElementById('leftVideo2');
-const leftVideo3 = document.getElementById('leftVideo3');
-const leftVideo4 = document.getElementById('leftVideo4');
+var merger = new VideoStreamMerger({width: 480, height:270})
 
-const rightVideo = document.getElementById('rightVideo');
+var mp4Element1 = document.createElement('video')
+var mp4Element2 = document.createElement('video')
+var mp4Element3 = document.createElement('video')
+var mp4Element4 = document.createElement('video')
 
-let stream;
+mp4Element1.muted = true
+mp4Element2.muted = true
+mp4Element3.muted = true
+mp4Element4.muted = true
+
+mp4Element1.src = "video/p1.mp4"
+mp4Element2.src = "video/p2.mp4"
+mp4Element3.src = "video/p3.mp4"
+mp4Element4.src = "video/p4.mp4"
+
+mp4Element1.autoplay = true
+mp4Element2.autoplay = true
+mp4Element3.autoplay = true
+mp4Element4.autoplay = true
+
+const rightVideo = document.querySelector('#output');
+
+let stream1;
 let stream2;
 let stream3;
 let stream4;
@@ -30,35 +47,117 @@ const offerOptions = {
 let startTime;
 
 function maybeCreateStream() {
-  if (stream) {
-    return;
-  }
-  if (leftVideo.captureStream) {
-    stream = leftVideo.captureStream();
-    stream2 = leftVideo2.captureStream();
-    stream3 = leftVideo3.captureStream();
-    stream4 = leftVideo4.captureStream();
+  stream1 = mp4Element1.captureStream();
+  stream2 = mp4Element2.captureStream();
+  stream3 = mp4Element3.captureStream();
+  stream4 = mp4Element4.captureStream();
 
-    console.log('Captured stream from leftVideo with captureStream',
-        stream);
-    call();
-  } else {
-    console.log('captureStream() not supported');
-  }
+  // Try setting resolution, doesn't work
+  // stream1.getVideoTracks().forEach(track => {
+  //   track.applyConstraints({
+  //     width: {exact: 10},
+  //     height: {exact: 10},
+  //     frameRate: {exact: 10}
+  //   });
+  // });
+
+  merger.addStream(stream1, {
+    x: 0,
+    y: 0,
+    width: 120,
+    height: 270,
+    mute: false,
+    draw: function (ctx, frame, done) {
+      ctx.drawImage(frame, 0, 0, 120, 270)
+      stream1.getVideoTracks().forEach(track => {
+        const constraints = track.getConstraints()
+        var str = JSON.stringify(constraints);
+        console.log(`#### ${str}`)
+      });
+      done()
+    }
+  })
+
+  merger.addStream(stream2, {
+    x: 120,
+    y: 0,
+    width: 120,
+    height: 270,
+    mute: false,
+    draw: function (ctx, frame, done) {
+      // Try setting resolution, doesn't work
+      // stream2.getVideoTracks().forEach(track => {
+      //   track.applyConstraints({
+      //     width: 10,
+      //     height: 10,
+      //     frameRate: {exact: 10}
+      //   });
+      // });
+      ctx.drawImage(frame, 120, 0, 120, 270)
+      done()
+    }
+  })
+
+  merger.addStream(stream3, {
+    x: 240,
+    y: 0,
+    width: 120,
+    height: 270,
+    mute: false,
+    draw: function (ctx, frame, done) {
+      // Try setting resolution, doesn't work
+      // stream3.getVideoTracks().forEach(track => {
+      //   track.applyConstraints({
+      //     width: 10,
+      //     height: 10,
+      //     frameRate: {exact: 10}
+      //   });
+      // });
+      ctx.drawImage(frame, 240, 0, 120, 270)
+      done()
+    }
+  })
+
+  merger.addStream(stream4, {
+    x: 360,
+    y: 0,
+    width: 120,
+    height: 270,
+    mute: false,
+    draw: function (ctx, frame, done) {
+      // Try setting resolution, doesn't work
+      // stream4.getVideoTracks().forEach(track => {
+      //   track.applyConstraints({
+      //     width: 10,
+      //     height: 10,
+      //     frameRate: {exact: 10}
+      //   });
+      // });
+      ctx.drawImage(frame, 360, 0, 120, 270)
+      done()
+    }
+  })
+
+  merger.start()
+
+  console.log('Captured stream1 from leftVideo with captureStream',
+      stream1);
+  call();
 }
 
-// Video tag capture must be set up after video tracks are enumerated.
-leftVideo.oncanplay = maybeCreateStream;
-if (leftVideo.readyState >= 3) { // HAVE_FUTURE_DATA
-  // Video is already ready to play, call maybeCreateStream in case oncanplay
-  // fired before we registered the event handler.
-  maybeCreateStream();
-}
+maybeCreateStream();
 
-leftVideo.play();
-leftVideo2.play();
-leftVideo3.play();
-leftVideo4.play();
+mp4Element1.loop = true
+mp4Element1.play()
+
+mp4Element2.loop = true
+mp4Element2.play()
+
+mp4Element3.loop = true
+mp4Element3.play()
+
+mp4Element4.loop = true
+mp4Element4.play()
 
 rightVideo.onloadedmetadata = () => {
   console.log(`Remote video videoWidth: ${rightVideo.videoWidth}px,  videoHeight: ${rightVideo.videoHeight}px`);
@@ -78,8 +177,8 @@ rightVideo.onresize = () => {
 function call() {
   console.log('Starting call');
   startTime = window.performance.now();
-  const videoTracks = stream.getVideoTracks();
-  const audioTracks = stream.getAudioTracks();
+  const videoTracks = stream1.getVideoTracks();
+  const audioTracks = stream1.getAudioTracks();
   if (videoTracks.length > 0) {
     console.log(`Using video device: ${videoTracks[0].label}`);
   }
@@ -97,19 +196,11 @@ function call() {
   pc2.oniceconnectionstatechange = e => onIceStateChange(pc2, e);
   pc2.ontrack = gotRemoteStream;
 
-  let newStream = new MediaStream();
+  let newStream = merger.result
 
-  stream.getTracks().forEach(track => newStream.addTrack(track));
-  stream2.getTracks().forEach(track => newStream.addTrack(track));
-  stream3.getTracks().forEach(track => newStream.addTrack(track));
-  stream4.getTracks().forEach(track => newStream.addTrack(track));
+  newStream.getTracks().forEach(track => pc1.addTrack(track, newStream));
 
-  stream.getTracks().forEach(track => pc1.addTrack(track, stream));
-
-  console.log('Added local stream to pc1');
-
-  console.log('### Tracks from newStream: ${newStream.}')
-
+  console.log('Added local newStream to pc1');
   console.log('pc1 createOffer start');
   pc1.createOffer(onCreateOfferSuccess, onCreateSessionDescriptionError, offerOptions);
 }
